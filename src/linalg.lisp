@@ -2,14 +2,76 @@
 (defpackage nail.linalg
   (:use :cl)
   (:export :matrix
-   :matrix-at
+           :matrix-at
            :|setf matrix-at|
            :copy-matrix
-   :transposed
+           :transposed
            :matrix-print
-           :m*))
+           :m*
+           :mult
+           :m+
+           :m-
+           :make-vector
+           :vec-x
+           :vec-y
+           :vec-z
+           :vec-length
+           :normalized))
+
 
 (in-package :nail.linalg)
+
+(defmacro assert-same-dimensions (a b)
+  `(assert (and (= (matrix-rows ,a) (matrix-rows ,b))
+                (= (matrix-cols ,a) (matrix-cols ,b)))
+           nil
+           "The matrices ~a and ~a must have the same dimensions."
+           ,a ,b))
+
+(defmacro do-matrix ((m i j &optional elt) &body body)
+  `(dotimes (,i (matrix-rows ,m) ,m)
+     (dotimes (,j (matrix-cols ,m))
+       ,@(if elt
+             `((symbol-macrolet ((,elt (matrix-at ,m ,i ,j)))
+                 ,@body))
+             body))))
+
+(defmacro def-elementwise-op-fun (name op)
+  `(defun ,name (&rest matrices)
+     (when (consp matrices)
+       (let ((result (copy-matrix (car matrices))))
+         (dolist (matrix (cdr matrices) result)
+           (assert-same-dimensions result matrix)
+           (map-into (matrix-data result) ,op
+                     (matrix-data result)
+                     (matrix-data matrix)))))))
+
+(defmacro make-vector (dim &key (orientation :column) generator)
+  (let ((i (gensym))
+        (j (gensym)))
+    (case orientation
+      (:column
+       `(make-instance 'matrix
+                       :rows ,dim
+                       :cols 1
+                       ,@(when generator
+                           `(:generator #'(lambda (,i ,j) (funcall ,generator ,i))))))
+      (:row
+       `(make-instance 'matrix
+                       :rows 1
+                       :cols ,dim
+                       ,@(when generator
+                           `(:generator #'(lambda (,i ,j) (funcall ,generator ,j))))))
+      (t (error "Unknows :orientation '~A'" orientation)))))
+
+(defmacro vec-x (v)
+  `(aref (matrix-data ,v) 0))
+
+(defmacro vec-y (v)
+  `(aref (matrix-data ,v) 1))
+
+(defmacro vec-z (v)
+  `(aref (matrix-data ,v) 2))
 
 (defclass matrix ()
   ((rows
@@ -43,7 +105,8 @@
       (if (functionp generator)
           (progn
             (setf (matrix-data m)
-                  (make-array (* (matrix-rows m) (matrix-cols m)) :element-type 'single-float))
+                  (make-array (* (matrix-rows m) (matrix-cols m))
+                              :element-type 'single-float))
             (dotimes (i (matrix-rows m) m)
               (dotimes (j (matrix-cols m))
                 (setf (matrix-at m i j)
@@ -79,21 +142,62 @@
       (format t "~7,2f  " (matrix-at m i j)))
     (terpri)))
 
-(defmacro do-matrix ((m i j &optional elt) &body body)
-  `(dotimes (,i (matrix-rows ,m) ,m)
-     (dotimes (,j (matrix-cols ,m))
-       ,@(if elt
-             `((symbol-macrolet ((,elt (matrix-data ,m ,i ,j)))
-                 ,@body))
-             body))))
-
 (defmethod m* ((a matrix) (b matrix))
   (assert (= (matrix-cols a) (matrix-rows b)))
   (let ((result (make-instance 'matrix
                                :rows (matrix-rows a)
                                :cols (matrix-cols b))))
-    (dotimes (i (matrix-rows result) result)
-      (dotimes (j (matrix-cols result))
-        (dotimes (k (matrix-cols a))
-          (incf (matrix-at result i j)
-                (* (matrix-at a i k) (matrix-at b k j))))))))
+    (do-matrix (result i j elt)
+      (dotimes (k (matrix-cols a))
+        (incf elt (* (matrix-at a i k) (matrix-at b k j)))))))
+
+(defmethod m* ((m matrix) (s real))
+  (make-instance 'matrix
+                 :rows (matrix-rows m)
+                 :cols (matrix-cols m)
+                 :data (map 'vector #'(lambda (i) (* i s)) (matrix-data m))))
+
+(defmethod m* ((s real) (m matrix))
+  (m* m s))
+
+(defun mult (&rest operands)
+  (when (consp operands)
+    (let ((acc (car operands)))
+      (dolist (operand (cdr operands) acc)
+        (setf acc (m* acc operand))))))
+
+(def-elementwise-op-fun m+ #'+)
+(def-elementwise-op-fun m- #'-)
+
+(defun vec-length (v)
+  (sqrt (reduce #'(lambda (i j) (+ i (* j j))) (matrix-data v) :initial-value 0.0)))
+
+(defun normalized (v)
+  (let ((s (vec-length v)))
+    (if (/= s 0)
+        (make-instance 'matrix
+                       :rows (matrix-rows v)
+                       :cols (matrix-cols v)
+                       :data (map 'vector #'(lambda (i) (/ i s)) (matrix-data v)))
+        (copy-matrix v))))
+
+(defun is-threedimensional-vector? (v)
+  (or (and (= (matrix-rows v) 3)
+           (= (matrix-cols v) 1))
+      (and (= (matrix-rows v) 1)
+           (= (matrix-cols v) 3))))
+
+(defun cross (a b)
+  (assert (is-threedimensional-vector? a))
+  (assert (is-threedimensional-vector? b))
+  (make-instance 'matrix
+                 :rows 3
+                 :cols 1
+                 :data (make-array 3 :element-type 'single-float
+                                     :initial-contents
+                                     (vector (- (* (vec-y a) (vec-z b))
+                                                (* (vec-y b) (vec-z a)))
+                                             (- (* (vec-z a) (vec-x b))
+                                                (* (vec-z b) (vec-x a)))
+                                             (- (* (vec-x a) (vec-y b))
+                                                (* (vec-x b) (vec-y a)))))))
