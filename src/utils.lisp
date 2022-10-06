@@ -1,6 +1,18 @@
 (in-package :cl-user)
 (defpackage nail.utils
-  (:use :cl))
+  (:use :cl)
+  (:export :mappend
+           :sort-closest-to
+           :find-max
+           :find-min
+           :find-all
+           :range
+           :transpose
+           :flatten
+           :range-random
+           :random-range
+           :elt-random
+           :elt-randoms))
 
 (in-package :nail.utils)
 
@@ -9,6 +21,12 @@
 
 (defun sort-closest-to (list element)
   (sort list #'< :key (lambda (x) (abs (- x element)))))
+
+(defun find-max (list)
+  (apply #'max list))
+
+(defun find-min (list)
+  (apply #'min list))
 
 (defun find-all (fun list)
   (remove-if-not fun list))
@@ -37,6 +55,6 @@
 (defun elt-random (list)
   (elt list (random (length list))))
 
-(defun elts-random (list n)
+(defun elt-randoms (list n)
   (loop for i from 1 to n
         collect (elt-random list)))
