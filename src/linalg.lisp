@@ -4,6 +4,8 @@
   (:export :matrix
            :matrix-at
            :|setf matrix-at|
+           :matrix-row
+           :matrix-col
            :copy-matrix
            :transposed
            :matrix-print
@@ -45,33 +47,6 @@
            (map-into (matrix-data result) ,op
                      (matrix-data result)
                      (matrix-data matrix)))))))
-
-(defmacro make-vector (dim &key (orientation :column) generator)
-  (let ((i (gensym))
-        (j (gensym)))
-    (case orientation
-      (:column
-       `(make-instance 'matrix
-                       :rows ,dim
-                       :cols 1
-                       ,@(when generator
-                           `(:generator #'(lambda (,i ,j) (funcall ,generator ,i))))))
-      (:row
-       `(make-instance 'matrix
-                       :rows 1
-                       :cols ,dim
-                       ,@(when generator
-                           `(:generator #'(lambda (,i ,j) (funcall ,generator ,j))))))
-      (t (error "Unknows :orientation '~A'" orientation)))))
-
-(defmacro vec-x (v)
-  `(aref (matrix-data ,v) 0))
-
-(defmacro vec-y (v)
-  `(aref (matrix-data ,v) 1))
-
-(defmacro vec-z (v)
-  `(aref (matrix-data ,v) 2))
 
 (defclass matrix ()
   ((rows
@@ -124,6 +99,16 @@
 (defun (setf matrix-at) (value m i j)
   (setf (aref (matrix-data m) (+ (* i (matrix-cols m)) j)) value))
 
+(defun matrix-row (m i)
+  (let ((result (make-array (matrix-cols m) :element-type 'single-float)))
+    (dotimes (el (matrix-cols m) result)
+      (setf (aref result el) (aref (matrix-data m) (+ el (* (matrix-cols m) i)))))))
+
+(defun matrix-col (m j)
+  (let ((result (make-array (matrix-rows m) :element-type 'single-float)))
+    (dotimes (el (matrix-rows m) result)
+      (setf (aref result el) (aref (matrix-data m) (+ j (* (matrix-cols m) el)))))))
+
 (defun copy-matrix (m)
   (make-instance 'matrix
                  :rows (matrix-rows m)
@@ -142,6 +127,8 @@
       (format t "~7,2f  " (matrix-at m i j)))
     (terpri)))
 
+(defgeneric m* (op1 op2))
+
 (defmethod m* ((a matrix) (b matrix))
   (assert (= (matrix-cols a) (matrix-rows b)))
   (let ((result (make-instance 'matrix
@@ -149,16 +136,22 @@
                                :cols (matrix-cols b))))
     (do-matrix (result i j elt)
       (dotimes (k (matrix-cols a))
-        (incf elt (* (matrix-at a i k) (matrix-at b k j)))))))
+        (incf elt (* (matrix-at a i k) (matrix-at b k j)))))
+    (if (= 1 (matrix-cols result) (matrix-rows result))
+        (aref (matrix-data result) 0)
+        result)))
 
-(defmethod m* ((m matrix) (s real))
+(defmethod m* ((m matrix) (s single-float))
   (make-instance 'matrix
                  :rows (matrix-rows m)
                  :cols (matrix-cols m)
                  :data (map 'vector #'(lambda (i) (* i s)) (matrix-data m))))
 
-(defmethod m* ((s real) (m matrix))
+(defmethod m* ((s single-float) (m matrix))
   (m* m s))
+
+(defmethod m* ((a single-float) (b single-float))
+  (+ a b))
 
 (defun mult (&rest operands)
   (when (consp operands)
@@ -168,6 +161,45 @@
 
 (def-elementwise-op-fun m+ #'+)
 (def-elementwise-op-fun m- #'-)
+
+;; Vector works
+
+(defun is-threedimensional-vector? (v)
+  (or (and (= (matrix-rows v) 3)
+           (= (matrix-cols v) 1))
+      (and (= (matrix-rows v) 1)
+           (= (matrix-cols v) 3))))
+
+(defmacro make-vector (dim &key (orientation :column) data generator)
+  (let ((i (gensym))
+        (j (gensym)))
+    (case orientation
+      (:column
+       `(make-instance 'matrix
+                       :rows ,dim
+                       :cols 1
+                       ,@(if data
+                             `(:data ,data)
+                             (when generator
+                               `(:generator #'(lambda (,i ,j) (funcall ,generator ,i)))))))
+      (:row
+       `(make-instance 'matrix
+                       :rows 1
+                       :cols ,dim
+                       ,@(if data
+                             `(:data ,data)
+                             (when generator
+                               `(:generator #'(lambda (,i ,j) (funcall ,generator ,j)))))))
+      (t (error "Unknows :orientation '~A'" orientation)))))
+
+(defun vec-x (v)
+  (aref (matrix-data v) 0))
+
+(defun vec-y (v)
+  (aref (matrix-data v) 1))
+
+(defun vec-z (v)
+  (aref (matrix-data v) 2))
 
 (defun vec-length (v)
   (sqrt (reduce #'(lambda (i j) (+ i (* j j))) (matrix-data v) :initial-value 0.0)))
@@ -180,12 +212,6 @@
                        :cols (matrix-cols v)
                        :data (map 'vector #'(lambda (i) (/ i s)) (matrix-data v)))
         (copy-matrix v))))
-
-(defun is-threedimensional-vector? (v)
-  (or (and (= (matrix-rows v) 3)
-           (= (matrix-cols v) 1))
-      (and (= (matrix-rows v) 1)
-           (= (matrix-cols v) 3))))
 
 (defun cross (a b)
   (assert (is-threedimensional-vector? a))
