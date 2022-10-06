@@ -1,8 +1,9 @@
 (defsystem "nail"
-  :version "0.1.0"
+  :version "0.1.5"
   :author "Walpurgisnatch"
   :license "MIT"
-  :depends-on (cl-ppcre)
+  :depends-on ("cl-ppcre"
+               "eazy-gnuplot")
   :components ((:module "src"
                 :components
                 :serial t
