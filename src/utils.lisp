@@ -17,7 +17,7 @@
 (in-package :nail.utils)
 
 (defun mappend (fn list)
-    (apply #'append (mapcar fn list)))
+  (apply #'append (mapcar fn list)))
 
 (defun sort-closest-to (list element)
   (sort list #'< :key (lambda (x) (abs (- x element)))))
