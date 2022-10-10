@@ -12,9 +12,32 @@
            :range-random
            :random-range
            :elt-random
-           :elt-randoms))
+           :elt-randoms
+           :parse-float
+           :round-to
+           :mapcar-2
+           :list-or-car))
 
 (in-package :nail.utils)
+
+(defmacro list-or-car (&body body)
+  `(let ((data ,@body))
+     (if (cdr data)
+         data
+         (car data))))
+
+(defmacro mapcar-2 (fun arg list)
+  `(mapcar #'(lambda (el) (,fun el ,arg)) ,list))
+
+(defun parse-float (string)
+  (list-or-car 
+    (let ((*read-eval* nil))
+      (with-input-from-string (stream string)
+        (loop for number = (read stream nil nil)
+              while (and number (numberp number)) collect number)))))
+
+(defun round-to (float decimals)
+  (parse-float (format nil "~,vf" decimals float)))
 
 (defun mappend (fn list)
   (apply #'append (mapcar fn list)))
