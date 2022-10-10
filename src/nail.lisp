@@ -1,6 +1,7 @@
 (in-package :cl-user)
 (defpackage nail
-  (:use :cl))
+  (:use :cl
+        :nail.utils))
 
 (in-package :nail)
 
@@ -18,6 +19,17 @@
 
 (defun mean (list)
   (/ (reduce #'+ list) (length list)))
+
+(defun de-mean (list)
+  (mapcar-2 - (mean list) list))
+
+(defun variance (list)
+  (let ((len (length list))
+        (deviations (de-mean list)))
+    (/ (sum-of-squares deviations) (1- len))))
+
+(defun standard-deviation (list)
+  (sqrt (variance list)))
 
 (defun median (list)
   (let* ((sorted (sort (copy-seq list) #'<))
