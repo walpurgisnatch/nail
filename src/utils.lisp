@@ -36,6 +36,11 @@
         (loop for number = (read stream nil nil)
               while (and number (numberp number)) collect number)))))
 
+
+;; (defun counter (list)
+;;   ;TODO
+;;   )
+
 (defun round-to (float decimals)
   (parse-float (format nil "~,vf" decimals float)))
 

@@ -1,6 +1,7 @@
 (in-package :cl-user)
 (defpackage nail.linalg
-  (:use :cl)
+  (:use :cl
+        :nail.utils)
   (:export :matrix
            :matrix-at
            :|setf matrix-at|
@@ -18,7 +19,12 @@
            :vec-y
            :vec-z
            :vec-length
-           :normalized))
+           :normalized
+           :dot
+           :sum-of-squares
+           :scallar-multiply
+           :magnitude
+           :distance))
 
 
 (in-package :nail.linalg)
@@ -47,6 +53,8 @@
            (map-into (matrix-data result) ,op
                      (matrix-data result)
                      (matrix-data matrix)))))))
+
+;; Matrix works
 
 (defclass matrix ()
   ((rows
@@ -227,3 +235,18 @@
                                                 (* (vec-z b) (vec-x a)))
                                              (- (* (vec-x a) (vec-y b))
                                                 (* (vec-x b) (vec-y a)))))))
+
+(defun dot (&rest vectors)
+  (reduce #'+ (apply #'mapcar #'* vectors)))
+
+(defun sum-of-squares(v)
+  (dot v v))
+
+(defun scalar-multiply (v s)
+  (mapcar-2 * s v))
+
+(defun magnitude (v)
+  (sqrt (sum-of-squares v)))
+
+(defun distance (v w)
+  (magnitude (mapcar #'- v w)))
