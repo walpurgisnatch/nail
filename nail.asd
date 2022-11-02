@@ -13,5 +13,4 @@
                  (:file "linalg" :depends-on ("utils"))
                  (:file "statistics" :depends-on ("linalg"))
                  (:file "nail" :depends-on ("statistics")))))
-  :description "Data science operations library"
-  :in-order-to ((test-op (test-op "nail/tests"))))
+  :description "library providing convenient functions for working with linalg, statistics and probability.")
