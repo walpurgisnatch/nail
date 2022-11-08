@@ -7,6 +7,8 @@ Nail is a library providing convenient functions for working with linalg, statis
 ### SOON
 
 ## Installation
+### Quicklisp
+`(ql:quickload :nail)`
 
 ## License
 
